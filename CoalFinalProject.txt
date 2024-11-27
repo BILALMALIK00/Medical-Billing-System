@@ -1,0 +1,686 @@
+INCLUDE Irvine32.inc
+
+.data
+
+reportHeader         BYTE "Sales Report:", 0
+unitsSoldMsg         BYTE "Units Sold: ", 0
+totalEarningsMsg     BYTE "Total Earnings: $", 0
+
+
+Earingingfrommedicine byte "Total Earned Through This Medicine: ",0
+    promptUsername     BYTE "Enter Username: ", 0
+    promptPassword     BYTE "Enter Password: ", 0
+    msgInvalid         BYTE "Invalid Credential", 0
+    loginLimit         BYTE "Chances Left: ", 0
+    usernameBuffer     BYTE 20 DUP(0)
+    passwordBuffer     BYTE 20 DUP(0)
+    correctUsername    BYTE "admin", 0
+    correctPassword    BYTE "password123", 0
+    menuOptions        BYTE "1. Purchase Medicines", 0Dh, 0Ah
+                       BYTE "2. View Medicine Data", 0Dh, 0Ah
+                       BYTE "3. Display Today's Earnings", 0Dh, 0Ah
+                       BYTE "4. Restock Medicine", 0Dh, 0Ah
+                       BYTE "5. Generate Report", 0Dh, 0Ah
+                       BYTE "6. Exit", 0Dh, 0Ah, 0
+    promptChoice       BYTE "Enter your choice: ", 0
+    invalidChoice      BYTE "Invalid choice. Try again.", 0Dh, 0Ah, 0
+    purchaseMsg        BYTE "You selected Purchase Medicines.", 0Dh, 0Ah, 0
+    viewDataMsg        BYTE "You selected View Medicine Data.", 0Dh, 0Ah, 0
+    earningsMsg        BYTE "You selected Display Today's Earnings.", 0Dh, 0Ah, 0
+    Total_Bill Dword 0
+    ;variables for Purchasing Menu
+    medicineNotFoundMsg BYTE "Medicine not found", 0
+    priceMedicineMsg    BYTE "Price of Medicine is: ", 0
+    inputPurchaseMedicine BYTE "Enter medicine name you want to purchase", 0
+    tempPrice           DWORD ?
+    tempQuantity        DWORD ?
+    quantityMsg        BYTE "Enter quantity of medicine you want to buy", 0
+    medicineBought     BYTE "Total price of medicine is: ", 0
+    totalPrice         DWORD 0
+    welcomeMsgPurchase BYTE "Welcome To Purchasing Menu! Press 1 to purchase a medicine and any ohter number to exit to main menu", 0
+    summaryMsg         BYTE "Summary if your bill is given below: ", 0
+    totalBill          DWORD 0
+    totalBillMsg          BYTE "Total Bill is: ", 0
+    filledStockMsg       BYTE "Stock empty for this medicine. Therefore cant buy", 0
+   stockFilledError   BYTE "Cannot restock. Stock limit of 1000 reached.", 0
+    totalEarnings DWORD 0  ; Stores total earnings for the day
+    ; Price Array 
+
+    medicinePrices DWORD 100, 200, 150, 250, 180, 220, 120, 130, 140, 300
+    DWORD 270, 320, 150, 200, 210, 170, 140, 190, 280, 260
+    DWORD 150, 350, 220, 240, 190, 210, 230, 260, 280, 310
+
+    ; Quantity Array
+
+    medicineQuantities DWORD 30 DUP(0)
+    ;Stock Quantity array
+    stockQuantities DWORD 30 DUP(1000)
+    soldQuantities DWORD 30 DUP(0)
+    ;purchaswArray
+    purchaseArr DWORD 30 DUP(0)
+    Earning Byte "Today's Earning: ",0
+    medicine1      BYTE "Aspirin", 0
+    medicine2      BYTE "Paracetamol", 0
+    medicine3      BYTE "Ibuprofen", 0
+    medicine4      BYTE "Amoxicillin", 0
+    medicine5      BYTE "Ciprofloxacin", 0
+    medicine6      BYTE "Doxycycline", 0
+    medicine7      BYTE "Loratadine", 0
+    medicine8      BYTE "Diphenhydramine", 0
+    medicine9      BYTE "Cetirizine", 0
+    medicine10     BYTE "Metformin", 0
+    medicine11     BYTE "Simvastatin", 0
+    medicine12     BYTE "Atorvastatin", 0
+    medicine13     BYTE "Omeprazole", 0
+    medicine14     BYTE "Amlodipine", 0
+    medicine15     BYTE "Losartan", 0
+    medicine16     BYTE "Hydrochlorothiazide", 0
+    medicine17     BYTE "Furosemide", 0
+    medicine18     BYTE "Lisinopril", 0
+    medicine19     BYTE "Pantoprazole", 0
+    medicine20     BYTE "Clopidogrel", 0
+    medicine21     BYTE "Prednisone", 0
+    medicine22     BYTE "Hydrocodone", 0
+    medicine23     BYTE "Gabapentin", 0
+    medicine24     BYTE "Alprazolam", 0
+    medicine25     BYTE "Tramadol", 0
+    medicine26     BYTE "Sertraline", 0
+    medicine27     BYTE "Escitalopram", 0
+    medicine28     BYTE "Fluoxetine", 0
+    medicine29     BYTE "Venlafaxine", 0
+    medicine30     BYTE "Mirtazapine", 0
+
+    Price BYTE "Price: $",0
+    Quantity BYTE "Quantity: ",0
+
+     divider           BYTE "----------------------------------", 0Dh, 0Ah, 0
+    indexCount DWORD 0
+    purchaseInput BYTE 30 DUP(?)
+    tempString BYTE 30 DUP(?)
+     restockPrompt      BYTE "Enter the name of the medicine to restock: ", 0
+     stockFilledMsg     BYTE "Stock has been successfully restocked!", 0
+             quantity_Msg        BYTE "Enter quantity of medicine you want to add: ", 0
+
+.code
+strcmp PROC USES esi edi
+    compareLoop:
+        mov al, [esi]
+        mov bl, [edi]
+        cmp al, bl
+        jne stringsNotEqual
+        cmp al, 0
+        JNE noNull
+        cmp bl,0
+        JE stringsEqual
+        noNull:
+        inc esi
+        inc edi
+        jmp compareLoop
+
+    stringsNotEqual:
+        mov eax, 1
+        JMP endProc
+
+    stringsEqual:
+        mov eax, 0
+        JMP endProc
+    endProc:
+        ret
+strcmp ENDP
+
+PurchaseMedicines PROC
+pushad
+   purchaseMenu:  
+   mov totalbill,0
+    mov edx, OFFSET welcomeMsgPurchase
+    call writeString
+    call crlf
+    call readInt
+    cmp eax, 1 ; If the uses chooses to exit purchase Menu then show stats and return to main menu
+    je purchasePositive
+    mov edx, OFFSET summaryMsg
+    call writeString
+    call crlf
+    mov esi, OFFSET medicine1         
+    mov edi,0
+    mov ecx, 30
+    viewLoop:
+ 
+    ; Display medicine name
+    mov edx, esi
+    mov eax, medicineQuantities[edi * 4]
+    cmp eax, 0 ; check if the medicine has been purchased by user. If not jump to end of loop and continue
+    je continueLabel
+
+
+    call WriteString
+    call Crlf
+    
+    
+    ; Display price
+
+    mov edx, OFFSET Price
+    call WriteString
+    mov eax, medicinePrices[edi * TYPE medicinePrices]                        
+    call WriteDec
+    call Crlf
+
+    ; Display quantity
+    mov edx, OFFSET Quantity
+    call WriteString
+    mov eax,  medicineQuantities[edi * TYPE medicineQuantities]                     
+    call WriteDec
+    call Crlf
+
+    ; Move to next medicine
+    mov edx, OFFSET divider
+    call WriteString
+continueLabel:
+  moveToNextString:
+        mov al,[esi]
+        cmp al,0
+        JE nextString
+        inc esi
+        JMP moveToNextString
+    nextString:
+    inc esi    
+  inc edi
+  Loop viewLoop
+
+    call Crlf
+    mov edx, OFFSET totalBillMsg
+    call writeString
+    mov ecx, 30
+    mov totalBill, 0
+    mov esi, 0
+    totalBillLabel:
+        mov eax, purchaseArr[esi * 4]
+        add totalBill, eax
+        inc esi
+        loop totalBillLabel
+    mov eax, totalBill
+    
+      add totalEarnings, eax   ; Accumulate earnings from the purchase
+
+    call writeDec
+    mov totalBill, 0
+    mov ecx, 30
+    push esi
+    mov esi, 0
+    ;reseting qunatity and totalBill for next customer
+    resetLabel: 
+        mov medicineQuantities[esi * 4], 0
+        mov purchaseArr[esi * 4], 0
+        loop resetLabel
+    pop esi
+
+
+
+
+    call crlf
+    call crlf
+
+
+
+
+    popad
+    ret
+
+
+    purchasePositive: ; if the user decides to purchase a medicine
+    pushad
+    mov edx, OFFSET purchaseMsg
+
+    call WriteString
+    call Crlf
+    mov edx, OFFSET inputPurchaseMedicine
+    call writeString
+    call crlf
+    mov edx, OFFSET purchaseInput
+    call readString
+    mov esi, OFFSET medicine1
+    mov edi, 0
+    mov ecx, 30
+    mov indexCount, 0
+    ; Looping through all the medicine names. if a match is found update the corresponding index and update the corresponding quantities and purchase array
+    purchase:
+    mov edi, 0
+
+    makeString:
+    mov al, [esi]
+    cmp al, 0
+    je compareString
+    mov tempString[edi], al
+    inc edi
+    inc esi
+    jmp makeString
+    
+
+
+    compareString:
+    mov tempString[edi], 0
+    push esi
+    mov esi, OFFSET tempString
+    mov edi, OFFSET purchaseInput
+    call strCmp
+    je medicineFound
+    pop esi
+    inc esi
+    inc indexCount
+    loop purchase
+    jmp medicineNotFound
+
+    medicineNotFound:
+    mov edx, OFFSET medicineNotFoundMsg
+    call writeString
+     call crlf
+     popad
+    jmp purchaseMenu
+
+
+
+
+    medicineFound:
+    ;Printing price of medicine
+    pop esi
+    mov eax, [indexCount]
+    mov ebx, OFFSET medicinePrices
+    mov ecx, 4
+    imul eax, ecx
+    add ebx, eax
+    mov edx, OFFSET priceMedicineMsg
+    call writeString
+    mov eax, [ebx]
+    call writeDec
+    call crlf
+    mov tempPrice, eax
+
+    ;Input Quantity of medicine
+   
+
+    mov edx, OFFSET quantityMsg
+    call writeString
+    call crlf
+    call readInt
+     mov tempQuantity, eax
+      ;Adding quantity to soldQuantities
+    mov eax, [indexCount]
+    mov ebx, OFFSET soldQuantities ; Adding the corresponding medicine quantity to total quantity of each medicine array
+    imul eax, ecx
+    add ebx, eax
+    mov eax, tempQuantity
+    add [ebx], eax
+
+    ;Subtracting quantity from stock Quantities
+    mov eax, [indexCount]
+    mov ebx, OFFSET stockQuantities
+    imul eax, ecx
+    add ebx, eax
+    mov eax, tempQuantity
+    sub [ebx], eax
+    mov eax,[ebx]
+    cmp eax, 0
+    jge purchaseQuantityLabel
+    mov eax, 0
+    mov [ebx], eax
+    mov edx, OFFSET filledStockMsg
+    call writeString
+    call crlf
+    popad
+    jmp purchaseMenu
+
+    purchaseQuantityLabel:
+     mov ebx, OFFSET medicineQuantities
+    mov eax, [indexCount]
+    mov ecx, 4
+    imul eax, ecx
+    add ebx, eax
+    mov eax, [ebx]
+    mov eax, tempQuantity
+    add [ebx], eax
+
+    ;Calculating temp price for the medicine you entered
+    mul tempPrice
+    mov totalPrice, eax
+    mov edx, OFFSET medicineBought
+    call writeString
+    call writeDec
+    call crlf
+
+    ;Adding the price in purchaseArr
+    mov eax, [indexCount]
+    mov ebx, OFFSET purchaseArr
+    imul eax, ecx
+    add ebx, eax
+    mov eax, totalPrice
+    add [ebx], eax
+
+    
+    popad
+    jmp purchaseMenu
+    
+
+
+
+
+
+
+    centre:
+    ret
+PurchaseMedicines ENDP
+
+ViewMedicineData PROC
+pushad
+    mov edx, OFFSET viewDataMsg
+    call WriteString
+    call Crlf
+
+    mov esi, OFFSET medicine1         
+    mov edi,0
+    mov ecx, 30                           ; Total number of medicines
+
+viewLoop:
+ 
+    ; Display medicine name
+    mov edx, esi
+    call WriteString
+    call Crlf
+    
+    moveToNextString:
+        mov al,[esi]
+        cmp al,0
+        JE nextString
+        inc esi
+        JMP moveToNextString
+    nextString:
+    inc esi    
+    ; Display price
+
+    mov edx, OFFSET Price
+    call WriteString
+    mov eax, medicinePrices[edi * TYPE medicinePrices]                        
+    call WriteDec
+    call Crlf
+
+    ; Display quantity
+    mov edx, OFFSET Quantity
+    call WriteString
+    mov eax,  stockQuantities[edi * TYPE stockQuantities]                     
+    call WriteDec
+    call Crlf
+
+    ; Move to next medicine
+    mov edx, OFFSET divider
+    call WriteString
+  inc edi
+  Loop viewLoop
+
+    call Crlf
+    popad
+    ret
+ViewMedicineData ENDP
+DisplayEarnings PROC
+    pushad                     
+    mov edx, OFFSET Earning     
+    call WriteString
+    mov eax, totalEarnings     
+    call WriteDec              
+    call Crlf                
+    popad                       
+    ret
+DisplayEarnings ENDP
+RestockMedicines PROC
+    pushad
+
+  
+    mov edx, OFFSET restockPrompt   
+    call WriteString
+    call Crlf
+
+    mov edx, OFFSET purchaseInput   
+    call ReadString
+
+   
+    mov esi, OFFSET medicine1     
+    mov ecx, 30                    
+    mov indexCount, 0               
+
+findMedicineLoop:
+    push esi                        
+    mov edx, esi                    
+    mov edi, OFFSET purchaseInput   
+    call strcmp                     
+    cmp eax, 0                       
+    je foundMedicine               
+    pop esi                          
+    moveToNextString:
+        mov al, [esi]
+        cmp al, 0
+        je nextString
+        inc esi
+        jmp moveToNextString
+    nextString:
+        inc esi
+    inc indexCount                  
+    loop findMedicineLoop
+
+    ; If not found, show error message
+    mov edx, OFFSET medicineNotFoundMsg
+    call WriteString
+    call Crlf
+    popad
+    ret
+
+foundMedicine:
+    pop esi                         
+
+    ; Prompt for restock quantity
+    mov edx, OFFSET quantity_Msg
+    call WriteString
+    call Crlf
+    call ReadInt                 
+    mov tempQuantity, eax           
+
+    ; Validate stock limit
+    mov eax, indexCount             
+    mov ebx, OFFSET stockQuantities  
+    imul eax, 4                   
+    add ebx, eax                    
+    mov eax, [ebx]                  
+    add eax, tempQuantity        
+
+    cmp eax, 1000                  
+    jg stockLimitExceeded         
+
+    ; Update stockQuantities
+    mov eax, tempQuantity
+    add [ebx], eax                   
+
+  
+    mov edx, OFFSET stockFilledMsg
+    call WriteString
+    call Crlf
+    popad
+    ret
+
+stockLimitExceeded:
+    ; Show error message for exceeding limit
+    mov edx, OFFSET stockFilledError
+    call WriteString
+    call Crlf
+    popad
+    ret
+
+RestockMedicines ENDP
+
+
+GenerateReport PROC
+    pushad
+
+    ; Display the header
+    mov edx, OFFSET reportHeader
+    call WriteString
+    call Crlf
+    call Crlf
+
+    mov ecx, 30                     
+    mov edi, 0                     
+
+generateLoop:
+    mov eax, [soldQuantities + edi * 4]
+    cmp eax, 0                      
+    je skipMedicine                   
+
+    mov esi, OFFSET medicine1         
+    mov ebx, edi                     
+
+findMedicineName:
+    cmp ebx, 0                      
+    je foundMedicineName
+    mov al, [esi]
+    cmp al, 0                        
+    jne continueSkipping
+    dec ebx                          
+continueSkipping:
+    inc esi                         
+    jmp findMedicineName
+foundMedicineName:
+    mov edx, esi                   
+    call WriteString
+    call Crlf
+
+    ; Display the units sold
+    mov edx, OFFSET unitsSoldMsg
+    call WriteString
+    mov eax, [soldQuantities + edi * 4]  
+    call WriteDec
+    call Crlf
+
+    mov edx, OFFSET Earingingfrommedicine
+    call WriteString
+    mov ebx, [medicinePrices + edi * 4] 
+    imul eax, ebx                       
+    call WriteDec
+    call Crlf
+    call Crlf
+
+skipMedicine:
+    inc edi                           
+    loop generateLoop              
+
+    ; Display the total earnings for the day
+    mov edx, OFFSET divider
+    call WriteString
+    call Crlf
+    mov edx, OFFSET totalEarningsMsg
+    call WriteString
+    mov eax, totalEarnings            
+    call WriteDec
+    call Crlf
+
+    popad
+    ret
+GenerateReport ENDP
+
+
+
+
+main PROC
+    mov ecx, 5  ; Set login attempts counter
+
+    userAuthentication:
+        mov edx, OFFSET promptUsername
+        call WriteString
+        push ecx
+        mov ecx,20
+        mov edx, OFFSET usernameBuffer
+        call ReadString
+
+        ; Compare entered username
+        mov esi, OFFSET usernameBuffer
+        mov edi, OFFSET correctUsername
+        call strcmp
+        cmp eax, 0
+        jne Invalid
+
+        mov edx, OFFSET promptPassword
+        mov ecx,20
+        call WriteString
+        mov edx, OFFSET passwordBuffer
+        call ReadString
+
+        ; Compare entered password
+        mov esi, OFFSET passwordBuffer
+        mov edi, OFFSET correctPassword
+        call strcmp
+        cmp eax, 0
+        je Menu
+
+    Invalid:
+        mov edx, OFFSET msgInvalid
+        call WriteString
+        call Crlf
+
+        mov edx, OFFSET loginLimit
+        call WriteString
+        pop ecx
+        push ecx
+        dec ecx
+        mov eax, ecx
+        call WriteDec
+        call Crlf
+        pop ecx
+        dec ecx
+        cmp ecx, 0
+        je exitt  ; Exit if no attempts left
+        jmp userAuthentication  ; Retry login
+
+    Menu:
+    mov eax,0
+    menuLoop:
+        mov edx, OFFSET menuOptions
+        call WriteString
+        mov edx, OFFSET promptChoice
+        call WriteString
+        call ReadDec
+        cmp eax, 1
+        je callPurchase
+        cmp eax, 2
+        je callViewData
+        cmp eax, 3
+        je callDisplayEarnings
+        cmp eax, 4
+        je callRestock  ; New option for Restock Medicines
+         cmp eax, 5
+        je callGenerateReport  ; New option for Restock Medicines
+        cmp eax, 6
+        je exitt
+        mov edx, OFFSET invalidChoice
+        call WriteString
+        call Crlf
+    jmp menuLoop
+
+    callPurchase:
+        call PurchaseMedicines
+        jmp menuLoop
+
+    callViewData:
+        call ViewMedicineData
+        jmp menuLoop
+
+    callDisplayEarnings:
+        call DisplayEarnings
+        jmp menuLoop
+    
+    callRestock:
+    call RestockMedicines  ; Call the RestockMedicines procedure
+    jmp menuLoop
+
+    callGenerateReport:
+    call GenerateReport
+    jmp menuLoop
+
+    exitt:
+    exit
+    main ENDP
+END main
